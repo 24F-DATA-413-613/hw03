@@ -1,0 +1,361 @@
+---
+title: "DATA-413/613 HW 3: Lists and Iteration"
+author: "Meet Patel"
+number-sections: true
+toc: false
+format:
+  html
+---
+
+# Working with Lists
+
+Because of their ability to handle general non-rectangular data, lists (or list-like objects) are often the output of procedures in R or from the collection of complex data.
+
+-   The file `discog_masters_100.rds` contains output from a query of the [Discog](https://www.discogs.com/) database. The data are about 100 releases of "Masters" albums in the US in 2023.
+
+1.  Use `readr::read_rds()` and a relative path to read this data from the data folder or `readRDS(url("https://raw.githubusercontent.com/AU-datascience/data/main/413-613/discog_masters_100.rds", open="rb"))` to read from GitHub.
+
+-   If you use the latter, explain what the `url() argument`rb\` is doing,
+
+    ```{r}
+    library(readr)
+
+
+    data <- read_rds("../data/discog_masters_100.rds")
+    class(data)
+    ```
+
+2.  Use appropriate functions to obtain the length of the list and then the vector of the names of the elements in the list.
+
+    ```{r}
+    length(data)
+     names(data)
+    ```
+
+3.  The `pagination` element does not provide any information of interest. Remove it from the list in one step.
+
+    ```{r}
+    data <- data[!names(data) %in% "pagination"]
+    names(data)
+    ```
+
+4.  There should only be one element in the list, `results` which is a list of 100 elements - each element is the data for one masters album.
+
+<!-- -->
+
+a.  To simplify working with the data, assign the `results` element back to `masters` so `masters` is now a list with 100 elements.
+
+    ```{r}
+    masters <- data$results
+
+    ```
+
+b.  Use a function to show just the number of elements in the list.
+
+    ```{r}
+    length(masters)
+    ```
+
+c.  Use a {purrr} function to generate a vector with the number of elements in each of the top level elements in the list.
+
+    ```{r}
+    library(purrr)
+
+    map_int(masters, length)
+    ```
+
+<!-- -->
+
+5.  Extract elements from a list.
+
+<!-- -->
+
+a.  Extract the first element from `masters` so it has one element.
+
+    ```{r}
+    first_album <- masters[[1]]
+    first_album
+    ```
+
+b.  Extract the first element from `masters` so it has 19 elements.
+
+    ```{r}
+    length(first_album)
+    ```
+
+c.  Extract the first element of the first album of `masters` so it is a list.
+
+    ```{r}
+    first_element_of_first_album <- masters[[1]][[1]]
+    first_element_of_first_album
+    ```
+
+d.  Extract the first element of the first album of `masters` so it is a character.
+
+    ```{r}
+    first_element_character <- as.character(masters[[1]][[1]])
+
+    ```
+
+e.  Use `purrr::pluck` to get the last album in `masters` in a way where it does not matter if the length of `masters` changes.
+
+    ```{r}
+    last_album <- pluck(masters, length(masters))
+    last_album
+    ```
+
+f.  Use `purrr::pluck` to get the last element of the last album in `masters`.
+
+    ```{r}
+    last_element_last_album <- pluck(masters, length(masters), length(pluck(masters, length(masters))))
+    last_element_last_album
+    ```
+
+g.  Show two ways to get the `title` of the second album in `masters`.
+
+    ```{r}
+    second_album_title_1 <- masters[[2]]$title 
+    second_album_title_1
+    second_album_title_2 <- pluck(masters, 2, "title")
+    second_album_title_2
+    ```
+
+<!-- -->
+
+6.  Operating on elements within a list.
+
+<!-- -->
+
+a.  Use a {purrr} function to create a vector with the class of elements in the list.
+
+    ```{r}
+    classes_vector <- map_chr(masters, class)
+
+    ```
+
+b.  Use {purrr} functions to create a list of length 100, where each element of the list is a named vector with the class of each of the 19 elements in one of the 100 list elements in `masters`. **Show just the first three elements**.
+
+    ```{r}
+    classes_list <- map(masters, ~map_chr(.x, class))
+
+    classes_list[1:3]
+
+    ```
+
+c.  Use a {purrr} function to create a list of length 100 where each element is a character vector with the names of 19 elements in one of the 100 list elements in `masters`.**Show just the last three elements**.
+
+    ```{r}
+    names_list <- map(masters, names)
+
+    # Show just the last three elements
+    last_three_names <- names_list[(length(names_list) - 2):length(names_list)]
+    last_three_names
+    ```
+
+d.  It appears that each of the 100 list elements in `masters` is a list of 19 elements for each album where the elements have the same classes and names across all albums. To confirm this using code, not just visual inspection, use a {purrr} function to create a list of 100 tibbles where each tibble contains the names of each of the 19 elements and then convert that list into a tibble with 1900 rows and extract the distinct names and sort them in alphabetical order. You should have 19 names.
+
+    ```{r}
+    library(tibble)
+    library(dplyr)
+    names_tibble_list <- map(masters, ~tibble(element_names = names(.x)))
+
+    combined_tibble <- bind_rows(names_tibble_list)
+
+    distinct_names <- combined_tibble %>%
+      distinct(element_names) %>%
+      arrange(element_names)
+
+    num_distinct_names <- nrow(distinct_names)
+    distinct_names
+    num_distinct_names
+    ```
+
+e.  Extract the list of the titles from each Album and convert to a tibble with column name `album_name` and show the last six entries.
+
+    ```{r}
+    titles_tibble <- tibble(album_name = map_chr(masters, ~ .x$title))
+
+    last_six_titles <- tail(titles_tibble, 6)
+    last_six_titles
+    ```
+
+f.  Run the following code and explain what it is doing.
+
+    ```{r}
+    map(masters, \(ls) {
+      ls$community <- as_tibble(ls$community)
+      ls
+    }) ->
+    masters
+    ```
+
+The code uses `map()` to iterate over each element in the `masters` list. For each element, it converts the `community` component into a tibble using `as_tibble()` and returns the modified list. The updated list is then reassigned back to `masters`, replacing the original list.
+
+# For Loops
+
+Consider the recursive sequence defined by:
+
+$$
+x_n = x_{n-1} + \frac{|x_{n-2} - x_{n-3}|}{5}.
+$$
+
+In words, element $x_n$ is the sum of element $x_{n-1}$ and the absolute value of the difference between between elements $x_{n-2}$ and $x_{n-3}$, divided by five. For example, if we let $x_1 = 3$, $x_2 = 1$, and $x_3 = 10$, then $x_4$ is
+
+$$
+x_4 = 10 + \frac{|1 - 3|}{5} = 10.4.
+$$
+
+1.  Write a function called `calcn()` to calculate $x_n$ for any positive $n$ based on input arguments of a vector `x` with the first three elements of this sequence ($x_1$, $x_2$, $x_3$) and a a second input argument of an integer `n` denoting the final element of the sequence to calculate.
+
+-   `calcn(x, n)` should return the value of the `n`^th^ element of the sequence.
+-   Include error checking to ensure both inputs are of the **correct length and class** and **`n` is greater than 0**.
+
+```{r}
+
+calcn <- function(x,n){
+  if (length(x) != 3) {
+    stop("The vector x must have exactly three elements.")
+  }
+  
+  if (!is.numeric(x)) {
+    stop("The input vector x must be numeric.")
+  }
+  
+  if (!is.numeric(n) || n <= 0 || n != as.integer(n)) {
+    stop("n must be a positive integer.")
+  }
+  if (n <= 3) {
+    return(x[n])
+  }
+  
+  sequence <- x
+
+
+  for (i in 4:n) {
+    next_element <- sequence[i - 1] + abs(sequence[i - 2] - sequence[i - 3]) / 5
+    sequence <- c(sequence, next_element)
+  }
+  
+    return(sequence[n])
+  
+}
+
+x <- c(3, 1, 10)
+n <- 4
+calcn(x, n) 
+
+
+
+#x <- c(3,12)
+#calcn(x,2)
+```
+
+For example, in my implementation of `calcn()`, I obtained the following:
+
+-   Evaluate your function at the following inputs:
+
+```{r}
+calcn(c(11, 1, 130), 1000L)
+calcn(c(11, 1, 130), 1L)
+calcn(c(7, 3, 20), 8L)
+```
+
+# Question: Lists, For-loops, and `map_*()`
+
+Lists are often used to save simulation output. You can then extract individual elements from the lists using for-loops.
+
+Consider the $t$-test, often used to test whether or not the true mean of a population for some observations is 0. We can use the following code to simulate data from a [Normal ($\mu = 0$,$\sigma = 1$) distribution](https://en.wikipedia.org/wiki/Normal_distribution), and then use a $t$-test to test if the true mean is 0:
+
+```{r}
+set.seed(1234)
+x <- rnorm(n = 10, mean = 0, sd = 1)
+tout <- t.test(x)
+```
+
+1.  The output of `t.test()` is a list. Use one function to show how many elements are in the top level of the list along with their names and class.
+
+    ```{r}
+    str(tout)
+    ```
+
+2.  Write a for-loop to perform the following three operations on iteration `i`:
+
+    1.  Draw 12 random observations from a Normal distribution with mean 0 and standard deviation 3.
+    2.  Run a $t$-test on these 12 observations.
+    3.  **Save the output of the** $t$-test as the `i`^th^ element in a list called `tlist`.
+
+-   Use `set.seed()` to set the seed to 1234.
+
+-   Run for 1000 iterations.
+
+    ```{r}
+    set.seed(1234)
+    tlist <- vector("list", 1000)
+    for (i in 1:1000) {
+      
+      x <- rnorm(n = 12, mean = 0, sd = 3)
+      
+      t_result <- t.test(x)
+      
+      tlist[[i]] <- t_result
+    }
+    str(tlist[1:2])
+    ```
+
+3.  Use the appropriate `purrr:map_*` function to extract the sample mean from each test in `tlist` (from 2) and pipe to an appropriate plot to show the sampling distribution of the sample mean.
+
+-   Hint: Make sure the data going into `ggplot()` is a data frame (tibble).
+-   Look at help for `tibble` for `.name_repair =` to create a useful name for the variable.
+
+```{r}
+library(purrr)
+library(ggplot2)
+library(tibble)
+
+
+
+sample_means <- map_dbl(tlist, ~ .x$estimate)
+mean_df <- tibble::tibble(sample_mean = sample_means)
+ggplot(mean_df, aes(x = sample_mean)) +
+  geom_histogram(binwidth = 0.2, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Sampling Distribution of the Sample Mean", 
+       x = "Sample Mean", 
+       y = "Frequency") +
+  theme_minimal()
+```
+
+4.  The $p$-value is an important quantity in statistics. Use a for-loop to extract the $p$-values from each test in part 2 and combine these $p$-values into a single atomic vector called `pvec_f`. Show the first 6 values.
+
+    ```{r}
+    pvec_f <- numeric(length(tlist))
+    for (i in 1:length(tlist)) {
+      pvec_f[i] <- tlist[[i]]$p.value
+    }
+    head(pvec_f)
+
+    ```
+
+5.  Use the appropriate `purrr:map_*` function to extract the $p$-values from each test in part 2 and combine these $p$-values into a single atomic vector called `pvec_m`. Show the first 6 values.
+
+    ```{r}
+    pvec_m <- map_dbl(tlist, ~ .x$p.value)
+    head(pvec_m)
+    ```
+
+6.  *Extra Credit*: $p$-values have a nice property where, if the null hypothesis is true (i.e., the mean of the observations is actually 0), then the $p$-values follow the uniform distribution.
+
+-   Use the data from `pvec_m` to create an appropriate [QQ-plot](https://en.wikipedia.org/wiki/Q–Q_plot) and then interpret the plot with regard to whether the $p$-values exhibit a **uniform distribution.**\
+-   Ensure your plot has appropriate labels for the axes and a title.
+-   Include a `geom_qq_line()` that is dashed and colored red.
+
+```{r}
+ggplot(data = data.frame(pvec_m), aes(sample = pvec_m)) +
+  stat_qq(distribution = stats::qunif) +           # QQ-plot with uniform distribution
+  geom_qq_line(distribution = stats::qunif, linetype = "dashed", color = "red") +  # Dashed red line
+  labs(title = "QQ-Plot of p-values against Uniform Distribution",
+       x = "Theoretical Quantiles (Uniform Distribution)",
+       y = "Sample Quantiles (p-values)") +
+  theme_minimal()
+```
+
+the p-values are uniformly distributed, as expected under the null hypothesis. There are no strong deviations from the diagonal, suggesting no evidence of systematic bias in the p-values.
